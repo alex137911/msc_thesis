@@ -6,18 +6,11 @@
 #SBATCH --error=process_CAGgeno.err
 #SBATCH --time=6:00:00
 #SBATCH --nodes=4
-#SBATCH --mem=1G
+#SBATCH --ntasks-per-node=4
+#SBATCH --mem-per-cpu=2G
 
 # --------------------------------------------------------------
-# Script efficiency
-# State: COMPLETED (exit code 0)
-# Nodes: 4
-# Cores per node: 1
-# CPU Utilized: 04:20:53
-# CPU Efficiency: 24.49% of 17:45:12 core-walltime
-# Job Wall-clock time: 04:26:18
-# Memory Utilized: 28.44 MB
-# Memory Efficiency: 0.07% of 40.00 GB
+# Script efficiency (37403891)
 
 # --------------------------------------------------------------
 # Load necessary modules
@@ -36,7 +29,7 @@ CHROMOSOMES=($(seq -f "chr%g" 1 22))
 
 # Set thresholds
 MAX_SAMPLE_MISSINGNESS=0.10  # 10% missingness per sample (genotype call rate > 90%)
-MIN_MAF=0.01                 # Minor allele frequency > 1%
+MIN_MAF=0.00                 # Minor allele frequency > 1%
 MAX_MISSINGNESS=0.10         # 10% missingness per variant
 HWE_PVAL=1e-15               # Hardy-Weinberg equilibrium p-value < 1e-15
 
@@ -69,6 +62,7 @@ for CHR in "${CHROMOSOMES[@]}"; do
 
     # Step 3: Filter by missingness < 10% (variant missingness < 10%)
     bcftools view -i "F_MISSING < ${MAX_MISSINGNESS}" "${OUT_DIR}/${CHR}_MAF_001.vcf.gz" -Oz -o "${OUT_DIR}/${CHR}_MISS-10.vcf.gz"
+    # bcftools view -i "F_MISSING < ${MAX_MISSINGNESS}" "${OUT_DIR}/${CHR}_GENO-CALL90.vcf.gz" -Oz -o "${OUT_DIR}/${CHR}_MISS-10.vcf.gz"
     after_variants_step3=$(bcftools view -H "${OUT_DIR}/${CHR}_MISS-10.vcf.gz" | wc -l)
     echo "Step 3: Variants before filtering: $after_variants_step2, after filtering (remove missingness > 10%): $after_variants_step3, removed: $((after_variants_step2 - after_variants_step3))" >> "$LOG_FILE"
     
