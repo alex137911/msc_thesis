@@ -49,6 +49,8 @@ plink --merge-list "$OUT_DIR/merge_list.txt" --make-bed --out "$OUT_DIR/merged_d
 echo "Chromosome merge completed."
 
 # Step 3: Perform LD Pruning
+# Window size of 1000kb, step size of 50 SNPs, r^2 threshold of 0.05
+# Exclude regions with high LD (e.g. MHC/HLA region) and low density regions
 echo "Performing LD pruning..."
 plink --bfile "$OUT_DIR/merged_data" \
       --indep-pairwise 1000 50 0.05 \
