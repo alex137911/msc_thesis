@@ -11,6 +11,14 @@
 
 # --------------------------------------------------------------
 # Script efficiency (37403891)
+# State: COMPLETED (exit code 0)
+# Nodes: 4
+# Cores per node: 4
+# CPU Utilized: 04:30:03
+# CPU Efficiency: 6.87% of 2-17:32:16 core-walltime
+# Job Wall-clock time: 04:05:46
+# Memory Utilized: 28.67 MB
+# Memory Efficiency: 0.09% of 32.00 GB
 
 # --------------------------------------------------------------
 # Load necessary modules
