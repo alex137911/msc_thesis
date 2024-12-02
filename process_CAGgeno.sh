@@ -32,12 +32,12 @@ OUT_DIR="/home/chanalex/scratch/CARTaGENE/QC"
 mkdir -p "$OUT_DIR"
 
 # Chromosomes to process
-# CHROMOSOMES=("chr21")
-CHROMOSOMES=($(seq -f "chr%g" 1 22))
+# CHROMOSOMES=("chrX")
+CHROMOSOMES=($(seq -f "chr%g" 1 22) "chrX")
 
 # Set thresholds
 MAX_SAMPLE_MISSINGNESS=0.10  # 10% missingness per sample (genotype call rate > 90%)
-MIN_MAF=0.00                 # Minor allele frequency > 1%
+MIN_MAF=0.00                 # Minor allele frequency > 0%
 MAX_MISSINGNESS=0.10         # 10% missingness per variant
 HWE_PVAL=1e-15               # Hardy-Weinberg equilibrium p-value < 1e-15
 
@@ -62,14 +62,14 @@ for CHR in "${CHROMOSOMES[@]}"; do
     final_samples=$(bcftools query -l "${OUT_DIR}/${CHR}_GENO-CALL90.vcf.gz" | wc -l)
     echo "Step 1: Samples before filtering: $total_samples, after filtering (remove genotyping call rate < 90%): $final_samples, removed: $((total_samples - final_samples))" >> "$LOG_FILE"
 
-    # Step 2: Filter by minor allele frequency (MAF > 1%)
-    bcftools view -i "MAF > ${MIN_MAF}" "${OUT_DIR}/${CHR}_GENO-CALL90.vcf.gz" -Oz -o "${OUT_DIR}/${CHR}_MAF_001.vcf.gz"
+    # Step 2: Filter by minor allele frequency (MAF > 0%)
+    bcftools view -i "MAF > ${MIN_MAF}" "${OUT_DIR}/${CHR}_GENO-CALL90.vcf.gz" -Oz -o "${OUT_DIR}/${CHR}_MAF_000.vcf.gz"
     before_variants=$(bcftools view -H "${OUT_DIR}/${CHR}_GENO-CALL90.vcf.gz" | wc -l)
-    after_variants_step2=$(bcftools view -H "${OUT_DIR}/${CHR}_MAF_001.vcf.gz" | wc -l)
+    after_variants_step2=$(bcftools view -H "${OUT_DIR}/${CHR}_MAF_000.vcf.gz" | wc -l)
     echo "Step 2: Variants before filtering: $before_variants, after filtering (remove MAF < 1%): $after_variants_step2, removed: $((before_variants - after_variants_step2))" >> "$LOG_FILE"
 
     # Step 3: Filter by missingness < 10% (variant missingness < 10%)
-    bcftools view -i "F_MISSING < ${MAX_MISSINGNESS}" "${OUT_DIR}/${CHR}_MAF_001.vcf.gz" -Oz -o "${OUT_DIR}/${CHR}_MISS-10.vcf.gz"
+    bcftools view -i "F_MISSING < ${MAX_MISSINGNESS}" "${OUT_DIR}/${CHR}_MAF_000.vcf.gz" -Oz -o "${OUT_DIR}/${CHR}_MISS-10.vcf.gz"
     # bcftools view -i "F_MISSING < ${MAX_MISSINGNESS}" "${OUT_DIR}/${CHR}_GENO-CALL90.vcf.gz" -Oz -o "${OUT_DIR}/${CHR}_MISS-10.vcf.gz"
     after_variants_step3=$(bcftools view -H "${OUT_DIR}/${CHR}_MISS-10.vcf.gz" | wc -l)
     echo "Step 3: Variants before filtering: $after_variants_step2, after filtering (remove missingness > 10%): $after_variants_step3, removed: $((after_variants_step2 - after_variants_step3))" >> "$LOG_FILE"
@@ -91,7 +91,7 @@ for CHR in "${CHROMOSOMES[@]}"; do
 
     # Cleanup intermediate files
     rm -f "${OUT_DIR}/${CHR}_GENO-CALL90.vcf.gz" \
-          "${OUT_DIR}/${CHR}_MAF_001.vcf.gz" \
+          "${OUT_DIR}/${CHR}_MAF_000.vcf.gz" \
           "${OUT_DIR}/${CHR}_MISS-10.vcf.gz" \
           
     echo "Finished processing $INPUT_FILE" >> "$LOG_FILE"
