@@ -38,7 +38,7 @@ CHROMOSOMES=($(seq -f "chr%g" 1 22) "chrX")
 # Set thresholds
 MAX_SAMPLE_MISSINGNESS=0.10  # 10% missingness per sample (genotype call rate > 90%)
 MIN_MAF=0.00                 # Minor allele frequency > 0%
-MAX_MISSINGNESS=0.10         # 10% missingness per variant
+MAX_MISSINGNESS=0.10         # 10% missingness per variant (remove variants missing in > 10% of samples)
 HWE_PVAL=1e-15               # Hardy-Weinberg equilibrium p-value < 1e-15
 
 # Loop through each chromosome
@@ -70,7 +70,6 @@ for CHR in "${CHROMOSOMES[@]}"; do
 
     # Step 3: Filter by missingness < 10% (variant missingness < 10%)
     bcftools view -i "F_MISSING < ${MAX_MISSINGNESS}" "${OUT_DIR}/${CHR}_MAF_000.vcf.gz" -Oz -o "${OUT_DIR}/${CHR}_MISS-10.vcf.gz"
-    # bcftools view -i "F_MISSING < ${MAX_MISSINGNESS}" "${OUT_DIR}/${CHR}_GENO-CALL90.vcf.gz" -Oz -o "${OUT_DIR}/${CHR}_MISS-10.vcf.gz"
     after_variants_step3=$(bcftools view -H "${OUT_DIR}/${CHR}_MISS-10.vcf.gz" | wc -l)
     echo "Step 3: Variants before filtering: $after_variants_step2, after filtering (remove missingness > 10%): $after_variants_step3, removed: $((after_variants_step2 - after_variants_step3))" >> "$LOG_FILE"
     
