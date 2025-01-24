@@ -4,20 +4,21 @@
 #SBATCH --job-name=process_CAGgeno
 #SBATCH --output=process_CAGgeno.out
 #SBATCH --error=process_CAGgeno.err
-#SBATCH --time=4:00:00
-#SBATCH --nodes=2
+#SBATCH --time=8:00:00
+#SBATCH --nodes=1
 #SBATCH --ntasks-per-node=2
 #SBATCH --mem-per-cpu=4G
 
 # --------------------------------------------------------------
-# Script efficiency (39634119)
+# Script efficiency (39691281)
 # State: COMPLETED (exit code 0)
-# Cores: 1
-# CPU Utilized: 02:57:23
-# CPU Efficiency: 98.41% of 03:00:15 core-walltime
-# Job Wall-clock time: 03:00:15
-# Memory Utilized: 28.45 MB
-# Memory Efficiency: 0.28% of 10.00 GB
+# Nodes: 1
+# Cores per node: 2
+# CPU Utilized: 04:20:42
+# CPU Efficiency: 52.74% of 08:14:18 core-walltime
+# Job Wall-clock time: 04:07:09
+# Memory Utilized: 28.44 MB
+# Memory Efficiency: 0.35% of 8.00 GB
 
 # --------------------------------------------------------------
 # Load necessary modules
@@ -34,7 +35,7 @@ mkdir -p "$OUT_DIR"
 CHROMOSOMES=($(seq -f "chr%g" 1 22))
 
 # Set thresholds
-MAX_SAMPLE_MISSINGNESS=0.05  # 5% genotype missingness per sample (remove genotype call rate < 95%)
+MAX_SAMPLE_MISSINGNESS=0.05  # 5% genotype missingness per sample (remove samples with call rate < 95%)
 MIN_MAF=0.01                 # Minor allele frequency > 1%
 MAX_MISSINGNESS=0.05         # 5% genotype missingness per variant (remove variants missing in > 5% of samples)
 HWE_PVAL=1e-6                # Variants which depart Hardy-Weinberg equilibrium (p-value < 1e-6)
