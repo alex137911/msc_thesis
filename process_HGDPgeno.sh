@@ -4,38 +4,52 @@
 #SBATCH --job-name=process_HGDPgeno
 #SBATCH --output=process_HGDPgeno.out
 #SBATCH --error=process_HGDPgeno.err
-#SBATCH --time=2:00:00
-#SBATCH --nodes=2
-#SBATCH --ntasks-per-node=4
+#SBATCH --time=4:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=2
 #SBATCH --mem-per-cpu=2G
 
 # --------------------------------------------------------------
-# (39559386)
-
+# Script efficiency (39708679)
+# State: COMPLETED (exit code 0)
+# Nodes: 1
+# Cores per node: 2
+# CPU Utilized: 1-11:52:45
+# CPU Efficiency: 49.84% of 2-23:59:26 core-walltime
+# Job Wall-clock time: 1-11:59:43
+# Memory Utilized: 1.16 GB
+# Memory Efficiency: 5.78% of 20.00 GB
 
 # --------------------------------------------------------------
 # Load necessary modules
 module purge
+module load StdEnv/2023
+module load gcc/12.3
 module load bcftools/1.19
 
 # Human Genome Diversity Project with 1000 Genomes supplement
 # Subset data for overlapping variants with QC CARTaGENE variants
 IN_DIR="/lustre06/project/6061810/shared/HGDP_1KG/unfiltered_vcfs"
 CAG_FILTERED_DIR="/lustre07/scratch/chanalex/CARTaGENE/QC"
-OUT_DIR="/home/chanalex/scratch/HGDP-1KG/QC"
+OUT_DIR="/lustre07/scratch/chanalex/HGDP-1KG/QC/HGDP-CAG_Subset"
+HGDP_ONLY_DIR="/lustre07/scratch/chanalex/HGDP-1KG/QC/HGDP-CAG_Subset"
 
 mkdir -p "$OUT_DIR"
 
 # Chromosomes to process
-# CHROMOSOMES=("chrX")
-CHROMOSOMES=("chr22")
+# CHROMOSOMES=($(seq -f "chr%g" 1 22))
+CHROMOSOMES=("chr21")
+
+# Remove CARTaGENE sample IDs (from HGDP-CAG subset when using bcftools isec)
+HGDP_IDS="/lustre06/project/6050814/chanalex/msc_thesis/Data/HGDP/complete_HGDPsamples.txt"
 
 # Loop through chromosomes
 for CHR in "${CHROMOSOMES[@]}"; do
     # Input files
-    HGDP_VCF="$IN_DIR/gnomad.genomes.v3.1.2.hgdp_tgp.${CHR}.vcf.bgz.csi"
+    HGDP_VCF="$IN_DIR/gnomad.genomes.v3.1.2.hgdp_tgp.${CHR}.vcf.bgz"
     CAG_FILTERED_VCF="$CAG_FILTERED_DIR/${CHR}_filtered.vcf.gz"
     OUTPUT_VCF="$OUT_DIR/${CHR}_HGDP_subset.vcf.gz"
+    HGDP_ONLY_VCF="${HGDP_ONLY_DIR}/${CHR}_HGDP_only.vcf.gz"
 
     # Check that input files exist
     if [[ -f "$HGDP_VCF" && -f "$CAG_FILTERED_VCF" ]]; then
@@ -49,16 +63,39 @@ for CHR in "${CHROMOSOMES[@]}"; do
 
         # Use bcftools isec to compute intserections between VCFs
         # -n=2: only retain variants present in BOTH files
-        bcftools isec -@ 16 -n=2 -p "$OUT_DIR" "$HGDP_VCF" "$CAG_FILTERED_VCF"
+        bcftools isec -n=2 -p "$OUT_DIR" "$HGDP_VCF" "$CAG_FILTERED_VCF"
+
+        # Compress the intersection files with bgzip
+        # Necessary for bcftools merge
+        echo "Compressing intersection files..."
+        bgzip -f "$OUT_DIR/0000.vcf"
+        bgzip -f "$OUT_DIR/0001.vcf"
+
+        # Index the compressed intersection files
+        # Also necessary for bcftools merge
+        echo "Indexing compressed intersection files..."
+        bcftools index -t "$OUT_DIR/0000.vcf.gz"
+        bcftools index -t "$OUT_DIR/0001.vcf.gz"
 
         # Merge the intersection into a single VCF
-        bcftools merge -Oz -o "$OUTPUT_VCF" "$OUT_DIR/0000.vcf" "$OUT_DIR/0001.vcf"
+        bcftools merge -Oz -o "$OUTPUT_VCF" "$OUT_DIR/0000.vcf.gz" "$OUT_DIR/0001.vcf.gz"
 
         # Index the output VCF
         bcftools index -t "$OUTPUT_VCF"
+
+        # Subset the VCF to only include HGDP samples
+        bcftools view \
+            -S "$HGDP_IDS" \
+            --force-samples \
+            -Oz \
+            -o "$HGDP_ONLY_VCF" \
+            "$OUTPUT_VCF"
+
+        # Index the new file
+        bcftools index -t "$HGDP_ONLY_VCF"
         
         # Remove intermediate files
-        rm -f "$OUT_DIR/0000.vcf" "$OUT_DIR/0001.vcf"
+        rm -f "$OUT_DIR/0000.vcf.gz" "$OUT_DIR/0001.vcf.gz" "$OUT_DIR/0000.vcf.gz.tbi" "$OUT_DIR/0001.vcf.gz.tbi"
 
         echo "Subset for $CHR completed: $OUTPUT_VCF"
     
@@ -70,74 +107,67 @@ done
 echo "Processing complete."
 
 # --------------------------------------------------------------
-# # Quality control of HGDP subset 
-# # (i.e., variants present in both HGDP and CARTaGENE datasets)
-# IN_DIR="/lustre06/project/6061810/shared/HGDP_1KG/unfiltered_vcfs"
+# Load necessary modules
+module purge
+module load StdEnv/2020
+module load plink/1.9b_6.21-x86_64
 
-# # Chromosomes to process
-# # CHROMOSOMES=("chrX")
-# CHROMOSOMES=("chr22")
-# # CHROMOSOMES=($(seq -f "chr%g" 1 22) "chrX")
+# Quality control of HGDP subset 
+# (i.e., variants present in both HGDP and CARTaGENE datasets)
+IN_DIR="/lustre07/scratch/chanalex/HGDP-1KG/QC/HGDP-CAG_Subset"
+OUT_DIR="/lustre07/scratch/chanalex/HGDP-1KG/QC"
 
-# # Set thresholds
-# MAX_SAMPLE_MISSINGNESS=0.10  # 10% missingness per sample (genotype call rate > 90%)
-# MIN_MAF=0.00                 # Minor allele frequency > 0%
-# MAX_MISSINGNESS=0.10         # 10% missingness per variant (remove variants missing in > 10% of samples)
-# HWE_PVAL=1e-15               # Hardy-Weinberg equilibrium p-value < 1e-15
+# Remove samples which fail gnomAD QC hard filters
+# Remove samples which were contaminated
+# Two samples per line for PLINK
+REMOVE_FILE="${IN_DIR}/HGDP_1KG.PassedQC-PLINK.txt"
 
-# # Loop through each chromosome
-# for CHR in "${CHROMOSOMES[@]}"; do
-#   INPUT_FILE="$IN_DIR/gnomad.genomes.v3.1.2.hgdp_tgp.${CHR}.vcf.bgz"
-#   OUTPUT_FILE="$OUT_DIR/${CHR}_filtered.vcf.bgz"
-#   LOG_FILE="$OUT_DIR/${CHR}_processing.log"
-#   {
-#     echo "Processing $INPUT_FILE"
+# Set thresholds
+MAX_SAMPLE_MISSINGNESS=0.05  # 5% genotype missingness per sample (remove samples with call rate < 95%)
+MIN_MAF=0.01                 # Minor allele frequency > 1%
+MAX_MISSINGNESS=0.05         # 5% genotype missingness per variant (remove variants missing in > 5% of samples)
+HWE_PVAL=1e-6                # Variants which depart Hardy-Weinberg equilibrium (p-value < 1e-6)
 
-#     # Step 1: Filter for genotyping call rate > 90% (i.e., sample missingness per variant < 10%)
-#     bcftools +fill-tags "$INPUT_FILE" -- -t F_MISSING | \
-#       bcftools query -f '[%SAMPLE\t%F_MISSING\n]' | \
-#       awk -v max_miss=${MAX_SAMPLE_MISSINGNESS} '$2 >= max_miss {print $1}' | \
-#       bcftools view -S ^/dev/stdin "$INPUT_FILE" -Oz -o "${OUT_DIR}/${CHR}_GENO-CALL90.vcf.bgz"
+# Loop through each chromosome
+for CHR in "${CHROMOSOMES[@]}"; do
+  INPUT_FILE="$IN_DIR/${CHR}_HGDP_subset.vcf.gz"
+  OUTPUT_FILE="$OUT_DIR/${CHR}_HGDP_filtered.vcf.gz"
+  LOG_FILE="$OUT_DIR/${CHR}_HGDP_processing.log"
 
-#     # Log the number of samples removed
-#     total_samples=$(bcftools query -l "$INPUT_FILE" | wc -l)
-#     final_samples=$(bcftools query -l "${OUT_DIR}/${CHR}_GENO-CALL90.vcf.bgz" | wc -l)
-#     echo "Step 1: Samples before filtering: $total_samples, after filtering (remove genotyping call rate < 90%): $final_samples, removed: $((total_samples - final_samples))" >> "$LOG_FILE"
+  echo "Processing $INPUT_FILE" > "$LOG_FILE"
 
-#     # Step 2: Filter by minor allele frequency (MAF > 0%)
-#     bcftools view -i "MAF > ${MIN_MAF}" "${OUT_DIR}/${CHR}_GENO-CALL90.vcf.bgz" -Oz -o "${OUT_DIR}/${CHR}_MAF_000.vcf.bgz"
-#     before_variants=$(bcftools view -H "${OUT_DIR}/${CHR}_GENO-CALL90.vcf.bgz" | wc -l)
-#     after_variants_step2=$(bcftools view -H "${OUT_DIR}/${CHR}_MAF_000.vcf.bgz" | wc -l)
-#     echo "Step 2: Variants before filtering: $before_variants, after filtering (remove MAF < 1%): $after_variants_step2, removed: $((before_variants - after_variants_step2))" >> "$LOG_FILE"
+  # Step 1: Convert VCF to PLINK binary format
+  plink --vcf "$HGDP_ONLY_VCF" \
+        --remove "$REMOVE_FILE" \
+        --const-fid \
+        --make-bed \
+        --out "${OUT_DIR}/${CHR}_temp" \
+        --real-ref-alleles >> "$LOG_FILE" 2>&1
+  
+  # Step 2: Remove gnomAD failed samples and apply filters
+  plink --bfile "${OUT_DIR}/${CHR}_temp" \
+        --maf "$MIN_MAF" \
+        --geno "$MAX_MISSINGNESS" \
+        --mind "$MAX_SAMPLE_MISSINGNESS" \
+        --hwe "$HWE_PVAL" midp \
+        --recode vcf bgz \
+        --out "${OUT_DIR}/${CHR}_HGDP_filtered" >> "$LOG_FILE" 2>&1
 
-#     # Step 3: Filter by missingness < 10% (variant missingness < 10%)
-#     bcftools view -i "F_MISSING < ${MAX_MISSINGNESS}" "${OUT_DIR}/${CHR}_MAF_000.vcf.bgz" -Oz -o "${OUT_DIR}/${CHR}_MISS-10.vcf.bgz"
-#     # bcftools view -i "F_MISSING < ${MAX_MISSINGNESS}" "${OUT_DIR}/${CHR}_GENO-CALL90.vcf.gz" -Oz -o "${OUT_DIR}/${CHR}_MISS-10.vcf.bgz"
-#     after_variants_step3=$(bcftools view -H "${OUT_DIR}/${CHR}_MISS-10.vcf.bgz" | wc -l)
-#     echo "Step 3: Variants before filtering: $after_variants_step2, after filtering (remove missingness > 10%): $after_variants_step3, removed: $((after_variants_step2 - after_variants_step3))" >> "$LOG_FILE"
-    
-#     # Step 4: Filter by Hardy-Weinberg Equilibrium (HWE p > 1e-15)
-#     bcftools view -i "HWE > ${HWE_PVAL}" "${OUT_DIR}/${CHR}_MISS-10.vcf.bgz" -Oz -o "$OUTPUT_FILE"
-#     after_variants_step4=$(bcftools view -H "$OUTPUT_FILE" | wc -l)
-#     echo "Step 4: Variants before filtering: $after_variants_step3, after filtering (remove HWE < 1e-15): $after_variants_step4, removed: $((after_variants_step3 - after_variants_step4))" >> "$LOG_FILE"
+  # Validate the output
+  if [[ ! -s "${OUT_DIR}/${CHR}_HGDP_filtered.vcf.gz" ]]; then
+      echo "Error: Output file ${OUT_DIR}/${CHR}_HGDP_filtered.vcf.gz is empty or missing." >> "$LOG_FILE"
+      continue
+  fi
 
-#     # Validate final output
-#     if [[ ! -s "$OUTPUT_FILE" ]]; then
-#         echo "Error: Output file $OUTPUT_FILE is empty or missing." >> "$LOG_FILE"
-#         continue
-#     fi
+  # Consolidate PLINK logs into one file
+  cat "${OUT_DIR}/${CHR}_temp.log" "${OUT_DIR}/${CHR}_HGDP_filtered.log" >> "$LOG_FILE"
+  rm -f "${OUT_DIR}/${CHR}_temp.log" "${OUT_DIR}/${CHR}_HGDP_filtered.log" \
+        "${OUT_DIR}/${CHR}_temp".*
 
-#     # Log final sample count
-#     final_samples=$(bcftools query -l "$OUTPUT_FILE" | wc -l)
-#     echo "Final samples kept after filtering: $final_samples, removed: $((total_samples - final_samples))" >> "$LOG_FILE"
+  echo "Finished processing $INPUT_FILE" >> "$LOG_FILE"
 
-#     # Cleanup intermediate files
-#     rm -f "${OUT_DIR}/${CHR}_GENO-CALL90.vcf.bgz" \
-#           "${OUT_DIR}/${CHR}_MAF_000.vcf.bgz" \
-#           "${OUT_DIR}/${CHR}_MISS-10.vcf.bgz" \
-          
-#     echo "Finished processing $INPUT_FILE" >> "$LOG_FILE"
-
-#   } > "$LOG_FILE" 2>&1
-
-# done
+  # Cleanup intermediate files
+  rm -f "${OUT_DIR}/${CHR}_temp".* \
+      "$HGDP_ONLY_VCF" \
+      "${HGDP_ONLY_VCF}.tbi"
+done
