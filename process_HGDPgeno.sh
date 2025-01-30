@@ -10,7 +10,7 @@
 #SBATCH --mem-per-cpu=10G
 
 # --------------------------------------------------------------
-# Script efficiency (39708679)
+# Script efficiency (39801522)
 # State: COMPLETED (exit code 0)
 # Nodes: 1
 # Cores per node: 2
@@ -85,8 +85,12 @@ for CHR in "${CHROMOSOMES[@]}"; do
 
         bcftools index -t "$OUT_DIR/merged_all.vcf.gz"
 
-        # Remove CARTaGENE sample IDs from HGDP subset
+        # Remove CARTaGENE sample IDs from HGDP subset +
+        # Retain only variants which passed gnomAD allele-specific (AS) version of
+        # GATK's Variant Quality Score Recalibration (VQSR)
+        # (i.e., VQSR filtering thresholds of -2.7739 for SNPs and -1.0606 for indels)
         bcftools view \
+            -f PASS \
             -S "$HGDP_IDS" \
             --force-samples \
             -Oz \
