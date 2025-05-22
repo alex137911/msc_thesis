@@ -4,21 +4,21 @@
 #SBATCH --job-name=process_HGDPgeno
 #SBATCH --output=process_HGDPgeno.out
 #SBATCH --error=process_HGDPgeno.err
-#SBATCH --time=48:00:00
+#SBATCH --time=96:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=2
-#SBATCH --mem-per-cpu=10G
+#SBATCH --mem-per-cpu=6G
 
 # --------------------------------------------------------------
-# Script efficiency (39801522)
-# State: COMPLETED (exit code 0)
+# Script efficiency (39940574)
+# State: TIMEOUT (exit code 0)
 # Nodes: 1
 # Cores per node: 2
-# CPU Utilized: 1-11:52:45
-# CPU Efficiency: 49.84% of 2-23:59:26 core-walltime
-# Job Wall-clock time: 1-11:59:43
+# CPU Utilized: 1-20:33:24
+# CPU Efficiency: 46.41% of 4-00:00:28 core-walltime
+# Job Wall-clock time: 2-00:00:14
 # Memory Utilized: 1.16 GB
-# Memory Efficiency: 5.78% of 20.00 GB
+# Memory Efficiency: 9.66% of 12.00 GB
 
 # --------------------------------------------------------------
 # Load necessary modules
@@ -88,7 +88,9 @@ for CHR in "${CHROMOSOMES[@]}"; do
         # Remove CARTaGENE sample IDs from HGDP subset +
         # Retain only variants which passed gnomAD allele-specific (AS) version of
         # GATK's Variant Quality Score Recalibration (VQSR)
-        # (i.e., VQSR filtering thresholds of -2.7739 for SNPs and -1.0606 for indels)
+        # (i.e., VQSR filtering thresholds of -2.7739 for SNPs and -1.0606 for indels) +
+        # Inbreeding coefficient (< -0.3) + 
+        # AC0 (allele count = 0 after removing low-confidence genotypes) filters
         bcftools view \
             -f PASS \
             -S "$HGDP_IDS" \
@@ -124,7 +126,7 @@ IN_DIR="/lustre07/scratch/chanalex/HGDP-1KG/QC/HGDP-CAG_Subset"
 OUT_DIR="/lustre07/scratch/chanalex/HGDP-1KG/QC"
 
 # Only keep samples which passed gnomAD QC hard filters and were not contaminated
-# Two samples per line for PLINK
+# Two sample IDs per line for PLINK
 PASSED_SAMPLES="${IN_DIR}/HGDP_1KG.PassedQC-PLINK.txt"
 
 # Set thresholds
